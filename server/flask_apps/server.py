@@ -32,6 +32,12 @@ def firewall():
 def app_fallback(error):
     return Response("Not found"), 404
 
+# Route für statische Dateien im 'storages'-Ordner
+@app.route('/storages/<path:filename>')
+def serve_storages(filename):
+    storages_path = get_path("/storages")
+    return send_from_directory(storages_path, filename)
+
 # Statische Dateien und Templates
 @app.route('/', defaults={'req_path': 'index.html'})
 @app.route('/<path:req_path>')
@@ -66,7 +72,7 @@ def app_serve(req_path: str):
     except (TemplateNotFound, FileNotFoundError):
         return abort(404)
 
-# Tägliche Verkaufsübersicht
+# Sales-Seite
 @app.route("/sales")
 def sales_page():
     today = datetime.now().date()

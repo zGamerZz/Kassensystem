@@ -1,34 +1,150 @@
-<!DOCTYPE html>
-<html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tägliche Verkaufsdaten</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-</head>
-<body>
-    <div class="container">
-        <h1 class="mt-5">Tägliche Verkaufsdaten</h1>
-        <table class="table table-striped mt-3">
-            <thead>
-                <tr>
-                    <th>Produktname</th>
-                    <th>Verkaufte Menge</th>
-                    <th>Gesamtumsatz (€)</th>
-                    <th>Zeitstempel</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for sale in sales_data %}
-                <tr>
-                    <td>{{ sale.item_name }}</td>
-                    <td>{{ sale.item_amount }}</td>
-                    <td>{{ sale.total_cost }}</td>
-                    <td>{{ sale.timestamp }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+{% extends "base.html" %}
+
+{% block title %}
+Zusammengefasste Verkäufe
+{% endblock %}
+
+{% block body %}
+<h1 style="text-align: center; font-family: Arial, sans-serif; color: #333;">Zusammenfassung der Verkäufe</h1>
+
+<div style="max-width: 800px; margin: 0 auto; font-family: Arial, sans-serif; text-align: center;">
+
+  <!-- Bereich für die Datumsauswahl -->
+  <div style="margin-bottom: 20px;">
+    <div style="display: inline-flex; align-items: center; gap: 10px;">
+      <label for="start-date">Von:</label>
+      <input type="datetime-local" id="start-date" style="padding: 5px; border: 1px solid #ccc; border-radius: 5px;">
+      <label for="end-date">Bis:</label>
+      <input type="datetime-local" id="end-date" style="padding: 5px; border: 1px solid #ccc; border-radius: 5px;">
+      <button onclick="filterSales()" style="padding: 6px 12px; background-color: #242424; color: white; border: none; border-radius: 5px; cursor: pointer;">Filtern</button>
     </div>
-</body>
-</html>
+  </div>
+
+  <!-- Buttons für vordefinierte Zeiträume -->
+  <div style="margin-bottom: 20px;">
+    <button onclick="setPreset('today')" style="padding: 10px 20px; margin: 5px; background-color: #242424; color: white; border: none; border-radius: 5px; cursor: pointer;">Heute</button>
+    <button onclick="setPreset('yesterday')" style="padding: 10px 20px; margin: 5px; background-color: #242424; color: white; border: none; border-radius: 5px; cursor: pointer;">Gestern</button>
+    <button onclick="setPreset('weekly')" style="padding: 10px 20px; margin: 5px; background-color: #242424; color: white; border: none; border-radius: 5px; cursor: pointer;">Wöchentlich</button>
+  </div>
+
+  <!-- Tabelle -->
+  <table style="width: 100%; border-collapse: collapse; box-shadow: 0px 0px 15px rgba(0,0,0,0.1);">
+    <thead>
+      <tr style="background-color: #242424; color: white; text-align: left;">
+        <th style="padding: 10px; border: 1px solid #ddd;">Produktname</th>
+        <th style="padding: 10px; border: 1px solid #ddd;">Gesamt verkaufte Menge</th>
+      </tr>
+    </thead>
+    <tbody id="sales-summary-table">
+      <!-- Dynamische Inhalte kommen hierhin -->
+    </tbody>
+  </table>
+
+</div>
+
+<script>
+  let salesData = {};
+
+  async function loadJSON() {
+    try {
+      const response = await fetch('../../storages/sales_log.json');
+      if (!response.ok) throw new Error('JSON konnte nicht geladen werden');
+      const data = await response.json();
+
+      // Zugriff auf den "_default"-Bereich
+      salesData = data._default;
+
+      // Tabelle mit allen Daten initial laden
+      updateTable(salesData);
+    } catch (error) {
+      console.error('Fehler beim Laden der JSON:', error);
+    }
+  }
+
+  function updateTable(data) {
+    const aggregatedSales = {};
+
+    // Daten zusammenfassen
+    for (const id in data) {
+      const sale = data[id];
+      const itemName = sale.item_name;
+
+      if (aggregatedSales[itemName]) {
+        aggregatedSales[itemName] += sale.amount_sold;
+      } else {
+        aggregatedSales[itemName] = sale.amount_sold;
+      }
+    }
+
+    // Tabelle aktualisieren
+    const tableBody = document.getElementById('sales-summary-table');
+    tableBody.innerHTML = ''; // Tabelle leeren
+
+    // Zusammengefasste Daten in die Tabelle einfügen
+    for (const itemName in aggregatedSales) {
+      const row = document.createElement('tr');
+      row.style.backgroundColor = '#f9f9f9';
+      row.style.textAlign = 'left';
+      row.style.borderBottom = '1px solid #ddd';
+
+      row.innerHTML = `
+        <td style="padding: 10px; border: 1px solid #ddd;">${itemName}</td>
+        <td style="padding: 10px; border: 1px solid #ddd;">${aggregatedSales[itemName]}</td>
+      `;
+      tableBody.appendChild(row);
+    }
+  }
+
+  function filterSales() {
+    const startDateInput = document.getElementById('start-date').value;
+    const endDateInput = document.getElementById('end-date').value;
+
+    if (!startDateInput || !endDateInput) {
+      alert('Bitte sowohl Start- als auch Enddatum angeben.');
+      return;
+    }
+
+    const startDate = new Date(startDateInput);
+    const endDate = new Date(endDateInput);
+
+    // Daten filtern
+    const filteredData = Object.fromEntries(
+      Object.entries(salesData).filter(([id, sale]) => {
+        const saleDate = new Date(sale.timestamp);
+        return saleDate >= startDate && saleDate <= endDate;
+      })
+    );
+
+    // Gefilterte Daten anzeigen
+    updateTable(filteredData);
+  }
+
+  function setPreset(preset) {
+    const now = new Date();
+    let startDate, endDate;
+
+    if (preset === 'today') {
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      endDate = new Date(startDate);
+      endDate.setDate(startDate.getDate() + 1);
+    } else if (preset === 'yesterday') {
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+      endDate = new Date(startDate);
+      endDate.setDate(startDate.getDate() + 1);
+    } else if (preset === 'weekly') {
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+      endDate = now;
+    }
+
+    // Werte in die Input-Felder setzen
+    document.getElementById('start-date').value = startDate.toISOString().slice(0, 16);
+    document.getElementById('end-date').value = endDate.toISOString().slice(0, 16);
+
+    // Filterung basierend auf den Preset-Daten ausführen
+    filterSales();
+  }
+
+  // Daten beim Laden der Seite laden
+  window.onload = loadJSON;
+</script>
+{% endblock %}

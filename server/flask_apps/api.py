@@ -1,22 +1,28 @@
-from typing import List
-from flask import Flask, request, jsonify, Response, render_template
 import os
 import re
-from tinydb import TinyDB, where
+import datetime
+
+from typing import List
+from flask import Flask, request, jsonify, Response
+from tinydb import TinyDB, Query
 from tinydb.queries import Query
-from datetime import datetime
+from tinydb import where
+
+
 
 from server.utils.backup import backup
 from server.utils.config_reader import config
 from server.utils.path import get_path
+
 
 # backup database before reading it
 backup()
 
 # create item DB
 items = TinyDB(get_path("storages/items.db"))
-# create transaction DB
-transactions = TinyDB(get_path("storages/transactions.db"))
+
+# create sales log DB
+sales_db = TinyDB('storages/sales_log.json')
 
 # patterns
 item_name_pattern = r"[\s\S]+"
@@ -26,20 +32,11 @@ item_cost_pattern = r"^[0-9]+[,|.]?[0-9]*$"
 # Utils
 def has_item(item_name: str) -> bool:
     """check items DB for an item with item_name"""
-    return items.contains(Query().name == item_name)
+    return items.contains(Query().name==item_name)
 
 def has_keys(_keys: List[str], _list: List[str]) -> bool:
     """check a list of keys if they are in another list (of keys)"""
     return set(_keys).issubset(set(_list))
-
-def log_transaction(item_name: str, item_amount: int, total_cost: float):
-    """Log transaction details into the transactions database."""
-    transactions.insert({
-        "item_name": item_name,
-        "item_amount": item_amount,
-        "total_cost": total_cost,
-        "timestamp": datetime.now().isoformat()
-    })
 
 # Flask app
 api = Flask(__name__)
@@ -50,7 +47,7 @@ api.before_request(backup)
 # handle assertion error => raised when user input is not correct
 @api.errorhandler(AssertionError)
 def failed(error):
-    return "failed - " + str(error), 400
+    return "failed - "+str(error), 400
 
 # handle not founds in api
 @api.errorhandler(404)
@@ -95,9 +92,9 @@ def additem():
 
     # add item
     items.insert({
-        "name": item_name,
-        "cost": item_cost,
-        "amount": item_amount
+        "name":item_name,
+        "cost":item_cost,
+        "amount":item_amount
     })
 
     # return response
@@ -136,28 +133,31 @@ def buy():
     item_amount = request.args["item_amount"]
 
     # check user input
-    # check user input
     assert has_item(item_name), "bad item"
-    assert int(items.get(Query().name == item_name).get("amount")) - int(item_amount) >= 0, "item overload"
+    assert int(items.get(Query().name==item_name).get("amount"))-int(item_amount)>=0, "item overload"
 
-    # calculate total cost
-    item_cost = float(items.get(Query().name == item_name).get("cost"))
-    total_cost = item_cost * int(item_amount)
+    # Verkaufsdaten erstellen
+    sales_data = {
+        "item_name": item_name,
+        "amount_sold": int(item_amount),
+        "timestamp": datetime.datetime.now().isoformat(),  # Verkaufszeitpunkt
+    }
+
+    # Verkaufsprotokoll einfügen
+    sales_db.insert(sales_data)
 
     # update items
     items.update({
         "amount": int(items.get(Query().name == item_name).get("amount")) - int(item_amount),
     }, where("name") == item_name)
 
-    # log transaction
-    log_transaction(item_name, int(item_amount), total_cost)
-
     return "success"
+
 
 @api.route("/edit", methods=["POST"])
 def edit():
     global items
-    # check for required keys
+    # check for requiered keys
     assert has_keys(["item_name_old", "item_name_new", "item_cost_new", "item_amount_new"], request.form.keys()), "bad keys"
 
     # check user input
@@ -166,7 +166,7 @@ def edit():
     assert re.match(item_amount_pattern, request.form["item_amount_new"]), "bad format"
     assert re.match(item_cost_pattern, request.form["item_cost_new"]), "bad format"
 
-    # save information in variables
+    # save inforamations in variables
     item_name_old = request.form["item_name_old"]
     item_name_new = request.form["item_name_new"]
     item_cost_new = float(request.form["item_cost_new"])
@@ -175,21 +175,16 @@ def edit():
     # check that item exists
     assert has_item(item_name_old), "bad item"
     if item_name_new != item_name_old:
-        # if item_name changed check that item doesn't already exist
+        # if item_name changed check that item doesn't already exists
         assert not has_item(item_name_new), "item already exists"
+
 
     # update item
     items.update({
-        "name": item_name_new,
-        "cost": item_cost_new,
-        "amount": item_amount_new
-    }, where("name") == item_name_old)
+            "name":item_name_new,
+            "cost":item_cost_new,
+            "amount":item_amount_new
+        }, where("name")==item_name_old)
 
     # send response
     return "success", 200
-
-@api.route("/daily_sales", methods=["GET"])
-def daily_sales():
-    sales_data = transactions.all()
-    print(sales_data)  # Debugging-Ausgabe
-    return render_template("daily_sales.html", sales_data=sales_data)
