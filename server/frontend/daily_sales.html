@@ -5,56 +5,111 @@ Zusammengefasste Verkäufe
 {% endblock %}
 
 {% block body %}
-<h1 style="text-align: center; font-family: Arial, sans-serif; color: #333;">Zusammenfassung der Verkäufe</h1>
+<div class="sales-container" style="max-width: 1200px; margin: 40px auto; padding: 0 20px;">
+  <h1 style="text-align: center; font-family: 'Segoe UI', Arial, sans-serif; color: #333; margin-bottom: 40px; font-size: 2.2em;">
+    Zusammenfassung der Verkäufe
+  </h1>
 
-<div style="max-width: 800px; margin: 0 auto; font-family: Arial, sans-serif; text-align: center;">
+  <div class="controls-container" style="background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); margin-bottom: 30px;">
+    <!-- Bereich für die Datumsauswahl -->
+    <div style="margin-bottom: 25px;">
+      <div style="display: flex; justify-content: center; align-items: center; gap: 15px; flex-wrap: wrap;">
+        <div class="date-input-group" style="display: flex; align-items: center; gap: 10px;">
+          <label for="start-date" style="font-weight: 500; color: #444;">Von:</label>
+          <input type="datetime-local" id="start-date" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; transition: border-color 0.2s;">
+        </div>
+        <div class="date-input-group" style="display: flex; align-items: center; gap: 10px;">
+          <label for="end-date" style="font-weight: 500; color: #444;">Bis:</label>
+          <input type="datetime-local" id="end-date" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; transition: border-color 0.2s;">
+        </div>
+        <button onclick="filterSales()" style="padding: 8px 20px; background-color: #505050; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500; transition: background-color 0.2s;">
+          Filtern
+        </button>
+      </div>
+    </div>
 
-  <!-- Bereich für die Datumsauswahl -->
-  <div style="margin-bottom: 20px;">
-    <div style="display: inline-flex; align-items: center; gap: 10px;">
-      <label for="start-date">Von:</label>
-      <input type="datetime-local" id="start-date" style="padding: 5px; border: 1px solid #ccc; border-radius: 5px;">
-      <label for="end-date">Bis:</label>
-      <input type="datetime-local" id="end-date" style="padding: 5px; border: 1px solid #ccc; border-radius: 5px;">
-      <button onclick="filterSales()" style="padding: 6px 12px; background-color: #242424; color: white; border: none; border-radius: 5px; cursor: pointer;">Filtern</button>
+    <!-- Buttons für vordefinierte Zeiträume -->
+    <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap;">
+      <button onclick="setPreset('today')" class="preset-btn" style="padding: 8px 20px; background-color: #f5f5f5; color: #333; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-weight: 500; transition: all 0.2s;">Heute</button>
+      <button onclick="setPreset('yesterday')" class="preset-btn" style="padding: 8px 20px; background-color: #f5f5f5; color: #333; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-weight: 500; transition: all 0.2s;">Gestern</button>
+      <button onclick="setPreset('weekly')" class="preset-btn" style="padding: 8px 20px; background-color: #f5f5f5; color: #333; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-weight: 500; transition: all 0.2s;">Wöchentlich</button>
     </div>
   </div>
 
-  <!-- Buttons für vordefinierte Zeiträume -->
-  <div style="margin-bottom: 20px;">
-    <button onclick="setPreset('today')" style="padding: 10px 20px; margin: 5px; background-color: #242424; color: white; border: none; border-radius: 5px; cursor: pointer;">Heute</button>
-    <button onclick="setPreset('yesterday')" style="padding: 10px 20px; margin: 5px; background-color: #242424; color: white; border: none; border-radius: 5px; cursor: pointer;">Gestern</button>
-    <button onclick="setPreset('weekly')" style="padding: 10px 20px; margin: 5px; background-color: #242424; color: white; border: none; border-radius: 5px; cursor: pointer;">Wöchentlich</button>
-  </div>
-
   <!-- Tabelle -->
-  <table style="width: 100%; border-collapse: collapse; box-shadow: 0px 0px 15px rgba(0,0,0,0.1);">
-    <thead>
-      <tr style="background-color: #242424; color: white; text-align: left;">
-        <th style="padding: 10px; border: 1px solid #ddd;">Produktname</th>
-        <th style="padding: 10px; border: 1px solid #ddd;">Gesamt verkaufte Menge</th>
-      </tr>
-    </thead>
-    <tbody id="sales-summary-table">
-      <!-- Dynamische Inhalte kommen hierhin -->
-    </tbody>
-  </table>
-
+  <div style="background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.08);">
+    <table style="width: 100%; border-collapse: separate; border-spacing: 0; margin-bottom: 10px;">
+      <thead>
+        <tr>
+          <th style="padding: 15px; background-color: #f5f5f5; color: #333; text-align: left; font-weight: 600; border-bottom: 2px solid #ddd;">Produktname</th>
+          <th style="padding: 15px; background-color: #f5f5f5; color: #333; text-align: center; font-weight: 600; border-bottom: 2px solid #ddd;">Gesamt verkaufte Menge</th>
+          <th style="padding: 15px; background-color: #f5f5f5; color: #333; text-align: right; font-weight: 600; border-bottom: 2px solid #ddd;">Umsatz</th>
+        </tr>
+      </thead>
+      <tbody id="sales-summary-table">
+        <!-- Dynamische Inhalte kommen hierhin -->
+      </tbody>
+      <tfoot>
+        <tr>
+          <td style="padding: 15px; font-weight: 600; color: #333; border-top: 2px solid #ddd;">Gesamt:</td>
+          <td id="total-amount" style="padding: 15px; font-weight: 600; color: #333; text-align: center; border-top: 2px solid #ddd;"></td>
+          <td id="total-revenue" style="padding: 15px; font-weight: 600; color: #333; text-align: right; border-top: 2px solid #ddd;"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
 </div>
+
+<style>
+  .preset-btn:hover {
+    background-color: #eee !important;
+    border-color: #ccc !important;
+  }
+  
+  input[type="datetime-local"]:focus {
+    border-color: #666;
+    outline: none;
+  }
+  
+  #sales-summary-table tr {
+    transition: background-color 0.2s;
+  }
+  
+  #sales-summary-table tr:hover {
+    background-color: #fafafa !important;
+  }
+  
+  @media (max-width: 768px) {
+    .date-input-group {
+      width: 100%;
+      justify-content: center;
+    }
+    
+    .controls-container button {
+      width: 100%;
+    }
+  }
+</style>
 
 <script>
   let salesData = {};
+  let itemsData = {};
 
   async function loadJSON() {
     try {
-      const response = await fetch('../../storages/sales_log.json');
-      if (!response.ok) throw new Error('JSON konnte nicht geladen werden');
-      const data = await response.json();
+      const [salesResponse, itemsResponse] = await Promise.all([
+        fetch('../../storages/sales_log.json'),
+        fetch('../../storages/items.db')
+      ]);
+      
+      if (!salesResponse.ok || !itemsResponse.ok) throw new Error('JSON konnte nicht geladen werden');
+      
+      const salesJson = await salesResponse.json();
+      const itemsJson = await itemsResponse.json();
 
-      // Zugriff auf den "_default"-Bereich
-      salesData = data._default;
+      salesData = salesJson._default;
+      itemsData = itemsJson._default;
 
-      // Tabelle mit allen Daten initial laden
       updateTable(salesData);
     } catch (error) {
       console.error('Fehler beim Laden der JSON:', error);
@@ -63,36 +118,62 @@ Zusammengefasste Verkäufe
 
   function updateTable(data) {
     const aggregatedSales = {};
+    let totalAmount = 0;
+    let totalRevenue = 0;
 
     // Daten zusammenfassen
     for (const id in data) {
       const sale = data[id];
       const itemName = sale.item_name;
+      const amountSold = sale.amount_sold;
 
       if (aggregatedSales[itemName]) {
-        aggregatedSales[itemName] += sale.amount_sold;
+        aggregatedSales[itemName].amount += amountSold;
       } else {
-        aggregatedSales[itemName] = sale.amount_sold;
+        aggregatedSales[itemName] = {
+          amount: amountSold,
+          revenue: 0
+        };
       }
+    }
+
+    // Umsatz berechnen
+    for (const itemName in aggregatedSales) {
+      const itemPrice = findItemPrice(itemName);
+      aggregatedSales[itemName].revenue = aggregatedSales[itemName].amount * itemPrice;
+      
+      totalAmount += aggregatedSales[itemName].amount;
+      totalRevenue += aggregatedSales[itemName].revenue;
     }
 
     // Tabelle aktualisieren
     const tableBody = document.getElementById('sales-summary-table');
-    tableBody.innerHTML = ''; // Tabelle leeren
+    tableBody.innerHTML = '';
 
-    // Zusammengefasste Daten in die Tabelle einfügen
-    for (const itemName in aggregatedSales) {
+    Object.entries(aggregatedSales).forEach(([itemName, data], index) => {
       const row = document.createElement('tr');
-      row.style.backgroundColor = '#f9f9f9';
-      row.style.textAlign = 'left';
-      row.style.borderBottom = '1px solid #ddd';
-
+      row.style.backgroundColor = index % 2 === 0 ? '#ffffff' : '#fafafa';
+      
       row.innerHTML = `
-        <td style="padding: 10px; border: 1px solid #ddd;">${itemName}</td>
-        <td style="padding: 10px; border: 1px solid #ddd;">${aggregatedSales[itemName]}</td>
+        <td style="padding: 15px; color: #333; border-bottom: 1px solid #eee;">${itemName}</td>
+        <td style="padding: 15px; text-align: center; color: #333; border-bottom: 1px solid #eee;">${data.amount}</td>
+        <td style="padding: 15px; text-align: right; color: #333; border-bottom: 1px solid #eee;">${data.revenue.toFixed(2)} €</td>
       `;
       tableBody.appendChild(row);
+    });
+
+    // Gesamtsummen aktualisieren
+    document.getElementById('total-amount').textContent = totalAmount;
+    document.getElementById('total-revenue').textContent = `${totalRevenue.toFixed(2)} €`;
+  }
+
+  function findItemPrice(itemName) {
+    for (const id in itemsData) {
+      if (itemsData[id].name === itemName) {
+        return parseFloat(itemsData[id].cost.replace(',', '.'));
+      }
     }
+    return 0;
   }
 
   function filterSales() {

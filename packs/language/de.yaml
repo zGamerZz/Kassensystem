@@ -30,6 +30,15 @@ sum: Summen
 cash: Bar
 change: Noch zu zahlen/Rückgeld
 
+# Neue Login-bezogene Einträge
+login_title: Anmeldung erforderlich
+enter_user_code: Benutzercode eingeben
+login_button: Anmelden
+logout_button: Abmelden
+admin_panel: Verwaltung
+user_management: Benutzerverwaltung
+sessions: Sitzungen
+
 about_page:
     heading: Über dieses Projekt
     body: >

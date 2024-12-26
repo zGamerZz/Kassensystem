@@ -7,8 +7,11 @@ from flask import Flask, request, jsonify, Response
 from tinydb import TinyDB, Query
 from tinydb.queries import Query
 from tinydb import where
+from datetime import datetime, timezone
 
-
+from tinydb import TinyDB, Query
+from datetime import datetime
+import hashlib
 
 from server.utils.backup import backup
 from server.utils.config_reader import config
@@ -24,10 +27,16 @@ items = TinyDB(get_path("storages/items.db"))
 # create sales log DB
 sales_db = TinyDB('storages/sales_log.json')
 
+# create users DB
+users_db = TinyDB(get_path("storages/users.db"))
+sessions_db = TinyDB(get_path("storages/sessions.db"))
+
 # patterns
 item_name_pattern = r"[\s\S]+"
 item_amount_pattern = r"^[0-9]+$"
 item_cost_pattern = r"^[0-9]+[,|.]?[0-9]*$"
+user_code_pattern = r"^[A-Za-z0-9]{6,}$"
+username_pattern = r"^[A-Za-z0-9\s]{3,}$"
 
 # Utils
 def has_item(item_name: str) -> bool:
@@ -37,6 +46,13 @@ def has_item(item_name: str) -> bool:
 def has_keys(_keys: List[str], _list: List[str]) -> bool:
     """check a list of keys if they are in another list (of keys)"""
     return set(_keys).issubset(set(_list))
+def has_user(user_code: str) -> bool:
+    """Prüft, ob ein Benutzer mit dem gegebenen Code existiert"""
+    return users_db.contains(Query().code == user_code)
+
+def get_active_session(user_code: str) -> dict:
+    """Gibt die aktive Session eines Benutzers zurück"""
+    return sessions_db.get((Query().user_code == user_code) & (Query().logout_time == None))
 
 # Flask app
 api = Flask(__name__)
@@ -188,3 +204,82 @@ def edit():
 
     # send response
     return "success", 200
+
+# Neue API-Routen für das Login-System
+@api.route("/login", methods=["POST"])
+def login():
+    assert has_keys(["user_code"], request.form.keys()), "bad keys"
+    user_code = request.form["user_code"]
+    
+    assert re.match(user_code_pattern, user_code), "ungültiger Benutzercode"
+    assert has_user(user_code), "Benutzer nicht gefunden"
+    
+    # Prüfen ob Benutzer bereits aktiv
+    active_session = get_active_session(user_code)
+    if active_session:
+        return "Benutzer bereits angemeldet", 400
+    
+    # Neue Session erstellen
+    sessions_db.insert({
+        "user_code": user_code,
+        "login_time": datetime.now(timezone.utc).isoformat(),
+        "logout_time": None
+    })
+    
+    return "success", 200
+
+@api.route("/logout", methods=["POST"])
+def logout():
+    assert has_keys(["user_code"], request.form.keys()), "bad keys"
+    user_code = request.form["user_code"]
+    
+    active_session = get_active_session(user_code)
+    if not active_session:
+        return "Keine aktive Session gefunden", 400
+    
+    # Session beenden
+    sessions_db.update(
+        {"logout_time": datetime.now(timezone.utc).isoformat()},
+        doc_ids=[active_session.doc_id]
+    )
+    
+    return "success", 200
+
+@api.route("/users", methods=["GET"])
+def get_users():
+    return jsonify(users_db.all()), 200
+
+@api.route("/user/add", methods=["POST"])
+def add_user():
+    assert has_keys(["user_code", "username"], request.form.keys()), "bad keys"
+    
+    user_code = request.form["user_code"]
+    username = request.form["username"]
+    
+    assert re.match(user_code_pattern, user_code), "ungültiger Benutzercode"
+    assert re.match(username_pattern, username), "ungültiger Benutzername"
+    assert not has_user(user_code), "Benutzer existiert bereits"
+    
+    users_db.insert({
+        "code": user_code,
+        "username": username,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    return "success", 200
+
+@api.route("/user/delete", methods=["DELETE"])
+def delete_user():
+    assert has_keys(["user_code"], request.args.keys()), "bad keys"
+    user_code = request.args["user_code"]
+    
+    assert has_user(user_code), "Benutzer nicht gefunden"
+    
+    users_db.remove(Query().code == user_code)
+    return "success", 200
+
+@api.route("/sessions/<user_code>", methods=["GET"])
+def get_user_sessions(user_code):
+    assert has_user(user_code), "Benutzer nicht gefunden"
+    sessions = sessions_db.search(Query().user_code == user_code)
+    return jsonify(sessions), 200

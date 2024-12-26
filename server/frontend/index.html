@@ -2,8 +2,80 @@
 {% block head %}
 <script src="js/overlay.js"></script>
 <script src="js/api.js"></script>
+<script src="js/itembag.js"></script>
+<script>
+    // Zähler und Timer für die Tastenkombination
+    let keyCount = 0;
+    let lastKeyTime = 0;
+    
+    document.addEventListener('keydown', function(event) {
+        const currentTime = new Date().getTime();
+        
+        // Wenn die 9 gedrückt wird
+        if (event.key === '9') {
+            // Wenn mehr als 1 Sekunde seit dem letzten Tastendruck vergangen ist, Reset
+            if (currentTime - lastKeyTime > 1000) {
+                keyCount = 0;
+            }
+            
+            keyCount++;
+            lastKeyTime = currentTime;
+            
+            // Nach 3-maligem Drücken
+            if (keyCount === 3) {
+                document.getElementById('admin-buttons').style.display = 'flex';
+                keyCount = 0; // Reset des Zählers
+            }
+        }
+    });
+
+    // Buttons nach 3 Sekunden wieder ausblenden
+    function hideAdminButtons() {
+        setTimeout(() => {
+            document.getElementById('admin-buttons').style.display = 'none';
+        }, 3000);
+    }
+</script>
+
+<style>
+    #admin-buttons {
+        display: none;
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        gap: 10px;
+        z-index: 1000;
+    }
+
+    .admin-button {
+        padding: 8px 16px;
+        background-color: var(--theme-color);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s;
+        opacity: 0.8;
+    }
+
+    .admin-button:hover {
+        opacity: 1;
+        transform: translateY(-2px);
+    }
+</style>
 {% endblock %}
+
 {% block body %}
+<!-- Admin Buttons (versteckt) -->
+<div id="admin-buttons" onmouseover="hideAdminButtons()">
+    <button onclick="window.location.href='/admin.html'" class="admin-button w3-button w3-theme-d3">
+        Admin
+    </button>
+    <button onclick="window.location.href='/daily_sales.html'" class="admin-button w3-button w3-theme-d3">
+        Verkäufe
+    </button>
+</div>
+
 <div class="w3-container w3-row w3-padding-32" style="width:100%">
     <div class="w3-content">
         <div class="w3-col w3-center" style="padding:3%">

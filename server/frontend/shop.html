@@ -2,7 +2,133 @@
 {% block head %}
 <script src="js/api.js"></script>
 <script src="js/itembag.js"></script>
+<script>
+    // Login-Status überprüfen und verwalten
+    let activeUserCode = localStorage.getItem('userCode');
+    let inactivityTimer;
+    const INACTIVITY_TIMEOUT = 300000; // 5 Minuten in Millisekunden
+    
+    function resetInactivityTimer() {
+        clearTimeout(inactivityTimer);
+        if (activeUserCode) {
+            inactivityTimer = setTimeout(() => {
+                handleLogout();
+                alert('Sie wurden aufgrund von Inaktivität automatisch abgemeldet.');
+            }, INACTIVITY_TIMEOUT);
+        }
+    }
+    
+    // Event-Listener für Benutzeraktivität
+    function setupActivityListeners() {
+        ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'].forEach(
+            eventName => document.addEventListener(eventName, resetInactivityTimer, true)
+        );
+    }
+
+    async function checkLoginStatus() {
+        const loginSection = document.getElementById('login-section');
+        const shopSection = document.getElementById('shop-section');
+        
+        if (!activeUserCode) {
+            loginSection.style.display = 'flex';
+            shopSection.style.display = 'none';
+            clearTimeout(inactivityTimer);
+        } else {
+            loginSection.style.display = 'none';
+            shopSection.style.display = 'flex';
+            resetInactivityTimer();
+        }
+    }
+
+    async function handleLogin(event) {
+        event.preventDefault();
+        const userCode = document.getElementById('user-code').value;
+        
+        try {
+            const response = await fetch('/api/shop/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `user_code=${userCode}`
+            });
+
+            if (response.ok) {
+                activeUserCode = userCode;
+                localStorage.setItem('userCode', userCode);
+                checkLoginStatus();
+            } else {
+                const errorText = await response.text();
+                if (errorText.includes('bereits angemeldet')) {
+                    if (confirm('Benutzer ist bereits angemeldet. Möchten Sie die bestehende Sitzung beenden und sich neu anmelden?')) {
+                        // Erst ausloggen
+                        await fetch('/api/shop/logout', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                            },
+                            body: `user_code=${userCode}`
+                        });
+                        
+                        // Dann neu einloggen
+                        const loginResponse = await fetch('/api/shop/login', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                            },
+                            body: `user_code=${userCode}`
+                        });
+
+                        if (loginResponse.ok) {
+                            activeUserCode = userCode;
+                            localStorage.setItem('userCode', userCode);
+                            checkLoginStatus();
+                        }
+                    }
+                } else {
+                    alert('Login fehlgeschlagen: ' + errorText);
+                }
+            }
+        } catch (error) {
+            alert('Fehler beim Login: ' + error);
+        }
+    }
+
+    async function handleLogout() {
+        if (!activeUserCode) return;
+
+        try {
+            const response = await fetch('/api/shop/logout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `user_code=${activeUserCode}`
+            });
+
+            if (response.ok) {
+                localStorage.removeItem('userCode');
+                activeUserCode = null;
+                checkLoginStatus();
+                clearTimeout(inactivityTimer);
+            } else {
+                alert('Logout fehlgeschlagen');
+            }
+        } catch (error) {
+            alert('Fehler beim Logout: ' + error);
+        }
+    }
+
+    // Beim Laden der Seite Login-Status prüfen und Activity Listener einrichten
+    document.addEventListener('DOMContentLoaded', () => {
+        checkLoginStatus();
+        if (activeUserCode) {
+            setupActivityListeners();
+        }
+    });
+</script>
 {% endblock %}
+
 {% block body %}
 <style>
     html {
@@ -29,7 +155,6 @@
         flex: 0 1 75%;
         height: 100%;
         overflow-y: auto;
-
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
         grid-auto-rows: min-content;
@@ -46,13 +171,76 @@
     }
 
     #itembag::after {
-        /* dummy item to prevent buttons from overlapping list items */
         content: '';
         display: block;
         height: 10%;
     }
+
+    /* Neue Styles für Login-Bereich */
+    #login-section {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+    }
+
+    .login-form {
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: 400px;
+    }
+
+    .login-form input {
+        width: 100%;
+        padding: 0.5rem;
+        margin-bottom: 1rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+
+    .login-form button {
+        width: 100%;
+        padding: 0.5rem;
+        background-color: var(--theme-color);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    #shop-section {
+        display: none;
+        width: 100%;
+    }
+
+    .logout-button {
+        position: fixed;
+        top: 1rem;
+        right: 1rem;
+        z-index: 1000;
+    }
 </style>
-<main class="main">
+
+<!-- Login-Bereich -->
+<div id="login-section" class="main">
+    <form class="login-form w3-theme-l5" onsubmit="handleLogin(event)">
+        <h2>{{ lang.login_title }}</h2>
+        <input type="text" id="user-code" placeholder="{{ lang.enter_user_code }}" required>
+        <button type="submit" class="w3-button w3-theme-d3">{{ lang.login_button }}</button>
+    </form>
+</div>
+
+<!-- Shop-Bereich -->
+<div id="shop-section" class="main">
+    <button onclick="handleLogout()" class="w3-button w3-theme-d3 logout-button">
+        {{ lang.logout_button }}
+    </button>
+    
     <div id="products">
     </div>
     
@@ -68,5 +256,5 @@
             </button>
         </div>
     </div>
-</main>
+</div>
 {% endblock %}

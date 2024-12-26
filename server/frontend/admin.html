@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Panel</title>
+    <meta content="text/html" http-equiv="Content-Type">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="KIOSK APP">
+    <meta name="robots" content="noindex">
+
+    <link rel="stylesheet" href="/css/themes/{{active_theme}}.css">
+    <link rel="stylesheet" type="text/css" href="/css/w3.css" />
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: #f8f8f8;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1, h2 {
+            color: #333;
+            margin-bottom: 25px;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 2.2em;
+            margin-top: 20px;
+        }
+
+        h2 {
+            font-size: 1.6em;
+            margin-top: 40px;
+        }
+
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
+        }
+
+        form {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            flex: 1;
+        }
+
+        input:focus {
+            border-color: #666;
+            outline: none;
+        }
+
+        button {
+            padding: 8px 20px;
+            background-color: #505050;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #404040;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-top: 20px;
+        }
+
+        th {
+            padding: 15px;
+            background-color: #f5f5f5;
+            color: #333;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #ddd;
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            color: #333;
+        }
+
+        tr:nth-child(even) {
+            background-color: #fafafa;
+        }
+
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .action-buttons button {
+            padding: 6px 12px;
+            font-size: 13px;
+            background-color: #f5f5f5;
+            color: #333;
+            border: 1px solid #ddd;
+        }
+
+        .action-buttons button:hover {
+            background-color: #eee;
+            border-color: #ccc;
+        }
+
+        @media (max-width: 768px) {
+            form {
+                flex-direction: column;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+            }
+        }
+    </style>
+    <script>
+        const ADMIN_PASSWORD = "admin123"; // In der Produktion sollte dies sicherer sein!
+        
+        function checkPassword() {
+            const password = localStorage.getItem('adminPassword');
+            if (!password || password !== ADMIN_PASSWORD) {
+                const input = prompt("Bitte Admin-Passwort eingeben:");
+                if (input !== ADMIN_PASSWORD) {
+                    alert("Falsches Passwort!");
+                    window.location.href = "/";
+                    return false;
+                }
+                localStorage.setItem('adminPassword', input);
+            }
+            return true;
+        }
+
+        async function loadUsers() {
+            if (!checkPassword()) return;
+            
+            const response = await fetch('/api/shop/users');
+            const users = await response.json();
+            const tbody = document.querySelector('#userTable tbody');
+            tbody.innerHTML = '';
+            
+            users.forEach(user => {
+                const row = `
+                    <tr>
+                        <td>${user.username}</td>
+                        <td>${user.code}</td>
+                        <td>${new Date(user.created_at).toLocaleString()}</td>
+                        <td>
+                            <div class="action-buttons">
+                                <button onclick="deleteUser('${user.code}')">Löschen</button>
+                                <button onclick="viewSessions('${user.code}')">Sessions</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+
+        async function addUser(event) {
+            event.preventDefault();
+            if (!checkPassword()) return;
+
+            const formData = new FormData(event.target);
+            try {
+                const response = await fetch('/api/shop/user/add', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    alert('Benutzer erfolgreich erstellt');
+                    event.target.reset();
+                    loadUsers();
+                } else {
+                    alert('Fehler beim Erstellen des Benutzers');
+                }
+            } catch (error) {
+                alert('Fehler: ' + error);
+            }
+        }
+
+        async function deleteUser(userCode) {
+            if (!checkPassword()) return;
+            
+            if (!confirm('Benutzer wirklich löschen?')) return;
+            
+            try {
+                const response = await fetch(`/api/shop/user/delete?user_code=${userCode}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    alert('Benutzer gelöscht');
+                    loadUsers();
+                } else {
+                    alert('Fehler beim Löschen');
+                }
+            } catch (error) {
+                alert('Fehler: ' + error);
+            }
+        }
+
+        async function viewSessions(userCode) {
+            if (!checkPassword()) return;
+            
+            try {
+                const response = await fetch(`/api/shop/sessions/${userCode}`);
+                const sessions = await response.json();
+                
+                // Hole Benutzernamen
+                const userResponse = await fetch('/api/shop/users');
+                const users = await userResponse.json();
+                const username = users.find(u => u.code === userCode)?.username || userCode;
+                
+                const sessionsList = sessions.map(session => {
+                    const loginTime = new Date(session.login_time);
+                    const logoutTime = session.logout_time ? new Date(session.logout_time) : null;
+                    
+                    return `${loginTime.toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'})} - ${
+                        logoutTime ? logoutTime.toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'}) : 'Aktiv'
+                    } -> Benutzer ${username}`;
+                }).join('\n\n');
+                
+                alert(sessionsList || 'Keine Sessions gefunden');
+            } catch (error) {
+                alert('Fehler: ' + error);
+            }
+        }
+
+        // Load users when page loads
+        document.addEventListener('DOMContentLoaded', loadUsers);
+    </script>
+</head>
+<body class="w3-theme-d3">
+    <div class="w3-bar w3-theme-dark w3-card w3-container" id="navigation-bar" style="position: sticky; top: 0;">
+        <a href="index.html" class="w3-bar-item w3-section w3-round-xlarge w3-hover-theme w3-left w3-theme-d3"><h2>{{ lang.title }}</h2></a>        
+        <a href="settings.html" class="w3-bar-item w3-section w3-round-xlarge w3-hover-theme w3-right"><h2>{{lang.settings}}</h2></a>
+        <a href="shop.html" class="w3-bar-item w3-section w3-round-xlarge w3-hover-theme w3-right"><h2>{{ lang.shop }}</h2></a>
+        <a href="storage.html" class="w3-bar-item w3-section w3-round-xlarge w3-hover-theme w3-right"><h2>{{ lang.storage }}</h2></a>
+    </div>
+
+    <div class="container">
+        <h1>Admin Panel - Benutzerverwaltung</h1>
+        
+        <div class="card">
+            <h2>Neuen Benutzer erstellen</h2>
+            <form onsubmit="addUser(event)">
+                <input type="text" name="username" placeholder="Benutzername" required pattern="[A-Za-z0-9\s]{3,}">
+                <input type="text" name="user_code" placeholder="Benutzercode" required pattern="[A-Za-z0-9]{6,}">
+                <button type="submit">Erstellen</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2>Benutzerliste</h2>
+            <table id="userTable">
+                <thead>
+                    <tr>
+                        <th>Benutzername</th>
+                        <th>Code</th>
+                        <th>Erstellt am</th>
+                        <th>Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // ... Vorheriger JavaScript-Code bleibt unverändert ...
+    </script>
+</body>
+</html>
