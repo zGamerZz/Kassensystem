@@ -220,9 +220,19 @@
 
     .logout-button {
         position: fixed;
-        top: 1rem;
-        right: 1rem;
+        bottom: 1rem;
+        left: 1rem;
         z-index: 1000;
+    }
+
+    /* Neuer Style für den unteren Bereich */
+    #bottom-bar {
+        position: fixed;
+        bottom: 0;
+        right: 0;
+        width: 25%;
+        padding: 1rem;
+        background-color: white;
     }
 </style>
 
@@ -249,7 +259,7 @@
             <h1 class="w3-bar-item">{{ lang.add_products_warning }}</h1>
         </div>
 
-        <div style="position: absolute; bottom: 1%; right: 1%; z-index: 1;">
+        <div id="bottom-bar">
             <button class="w3-button w3-theme-d3" id="sum" style="cursor: default;">0€</button>
             <button id="pay" class="w3-button w3-theme-d3" onclick="ITEMBAG.render_pay()">
                 {{ lang.pay }}
