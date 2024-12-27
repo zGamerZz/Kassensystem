@@ -140,6 +140,67 @@
                 flex-direction: column;
             }
         }
+
+        .date-range-form {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .date-inputs {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .date-range-form input[type="date"] {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        @media (max-width: 768px) {
+            .date-range-form {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .date-inputs {
+                flex-direction: column;
+            }
+        }
+
+        .date-controls {
+            margin-bottom: 20px;
+        }
+
+        .quick-buttons {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .quick-buttons button {
+            padding: 8px 16px;
+            background-color: #505050;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .quick-buttons button:hover {
+            background-color: #404040;
+        }
+
+        @media (max-width: 768px) {
+            .quick-buttons {
+                flex-direction: column;
+            }
+        }
     </style>
     <script>
         const ADMIN_PASSWORD = "admin123"; // In der Produktion sollte dies sicherer sein!
@@ -255,8 +316,114 @@
             }
         }
 
-        // Load users when page loads
-        document.addEventListener('DOMContentLoaded', loadUsers);
+        async function loadAllSessions(event, showAll = false) {
+            if (event) event.preventDefault();
+            if (!checkPassword()) return;
+            
+            try {
+                // Hole alle Benutzer
+                const usersResponse = await fetch('/api/shop/users');
+                const users = await usersResponse.json();
+                
+                // Hole alle Sessions für jeden Benutzer
+                const allSessions = [];
+                for (const user of users) {
+                    const sessionsResponse = await fetch(`/api/shop/sessions/${user.code}`);
+                    const sessions = await sessionsResponse.json();
+                    sessions.forEach(session => {
+                        allSessions.push({
+                            ...session,
+                            username: user.username
+                        });
+                    });
+                }
+                
+                // Filtere Sessions nach Zeitraum, wenn nicht "Alle anzeigen" gewählt wurde
+                let filteredSessions = allSessions;
+                if (!showAll) {
+                    const startDate = new Date(document.getElementById('startDate').value);
+                    const endDate = new Date(document.getElementById('endDate').value);
+                    endDate.setHours(23, 59, 59); // Ende des Tages
+
+                    filteredSessions = allSessions.filter(session => {
+                        const loginTime = new Date(session.login_time);
+                        return loginTime >= startDate && loginTime <= endDate;
+                    });
+                }
+                
+                // Sortiere Sessions nach Login-Zeit (neueste zuerst)
+                filteredSessions.sort((a, b) => new Date(b.login_time) - new Date(a.login_time));
+                
+                // Aktualisiere Tabelle
+                const tbody = document.querySelector('#sessionsTable tbody');
+                tbody.innerHTML = '';
+                
+                filteredSessions.forEach(session => {
+                    const loginTime = new Date(session.login_time);
+                    const logoutTime = session.logout_time ? new Date(session.logout_time) : null;
+                    
+                    const row = `
+                        <tr>
+                            <td>${session.username}</td>
+                            <td>${loginTime.toLocaleString('de-DE')}</td>
+                            <td>${logoutTime ? logoutTime.toLocaleString('de-DE') : '-'}</td>
+                            <td>${logoutTime ? 'Beendet' : '<strong>Aktiv</strong>'}</td>
+                        </tr>
+                    `;
+                    tbody.innerHTML += row;
+                });
+            } catch (error) {
+                console.error('Fehler beim Laden der Sessions:', error);
+                alert('Fehler beim Laden der Benutzeraktivitäten');
+            }
+        }
+
+        function setQuickDate(period) {
+            const startDate = document.getElementById('startDate');
+            const endDate = document.getElementById('endDate');
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            switch(period) {
+                case 'today':
+                    startDate.value = today.toISOString().split('T')[0];
+                    endDate.value = today.toISOString().split('T')[0];
+                    break;
+                    
+                case 'yesterday':
+                    const yesterday = new Date(today);
+                    yesterday.setDate(today.getDate() - 1);
+                    startDate.value = yesterday.toISOString().split('T')[0];
+                    endDate.value = yesterday.toISOString().split('T')[0];
+                    break;
+                    
+                case 'thisWeek':
+                    const monday = new Date(today);
+                    monday.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1)); // Setzt auf Montag
+                    startDate.value = monday.toISOString().split('T')[0];
+                    endDate.value = today.toISOString().split('T')[0];
+                    break;
+            }
+            
+            // Automatisch den ausgewählten Zeitraum laden
+            loadAllSessions(null);
+        }
+
+        // Setze Standarddaten beim Laden der Seite
+        document.addEventListener('DOMContentLoaded', () => {
+            loadUsers();
+            
+            // Setze Standarddaten für das Datumsauswahlfeld
+            const today = new Date();
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(today.getDate() - 30);
+            
+            document.getElementById('startDate').value = thirtyDaysAgo.toISOString().split('T')[0];
+            document.getElementById('endDate').value = today.toISOString().split('T')[0];
+            
+            loadAllSessions(null, true); // Lade initial alle Sessions
+            setInterval(() => loadAllSessions(null, true), 30000); // Aktualisiere alle 30 Sekunden
+        });
     </script>
 </head>
 <body class="w3-theme-d3">
@@ -288,6 +455,38 @@
                         <th>Code</th>
                         <th>Erstellt am</th>
                         <th>Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <h2>Benutzeraktivitäten</h2>
+            <div class="date-controls">
+                <div class="quick-buttons">
+                    <button type="button" onclick="setQuickDate('today')">Heute</button>
+                    <button type="button" onclick="setQuickDate('yesterday')">Gestern</button>
+                    <button type="button" onclick="setQuickDate('thisWeek')">Diese Woche</button>
+                </div>
+                <form id="dateRangeForm" onsubmit="loadAllSessions(event)" class="date-range-form">
+                    <div class="date-inputs">
+                        <input type="date" id="startDate" name="startDate" required>
+                        <span>bis</span>
+                        <input type="date" id="endDate" name="endDate" required>
+                    </div>
+                    <button type="submit">Zeitraum anzeigen</button>
+                    <button type="button" onclick="loadAllSessions(null, true)">Alle anzeigen</button>
+                </form>
+            </div>
+            <table id="sessionsTable">
+                <thead>
+                    <tr>
+                        <th>Benutzer</th>
+                        <th>Anmeldung</th>
+                        <th>Abmeldung</th>
+                        <th>Status</th>
                     </tr>
                 </thead>
                 <tbody>
