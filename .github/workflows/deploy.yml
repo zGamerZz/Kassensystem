@@ -19,4 +19,5 @@ jobs:
           script: |
             cd ~/Kassensystem
             git pull origin main
+            python -m server
             # Hier weitere Befehle wie npm install, restart service etc. 
