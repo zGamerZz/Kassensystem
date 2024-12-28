@@ -99,22 +99,52 @@ Zusammengefasste Verkäufe
 
   async function loadJSON() {
     try {
+      // Füge Logging hinzu
+      console.log('Starte Datenladen...');
+      
       const [salesResponse, itemsResponse] = await Promise.all([
         fetch('../../storages/sales_log.json'),
         fetch('../../storages/items.db')
       ]);
       
-      if (!salesResponse.ok || !itemsResponse.ok) throw new Error('JSON konnte nicht geladen werden');
+      // Prüfe die Response-Status
+      if (!salesResponse.ok) {
+        throw new Error(`Sales-Daten Fehler: ${salesResponse.status}`);
+      }
+      if (!itemsResponse.ok) {
+        throw new Error(`Items-Daten Fehler: ${itemsResponse.status}`);
+      }
       
       const salesJson = await salesResponse.json();
       const itemsJson = await itemsResponse.json();
+      
+      // Logging der geladenen Daten
+      console.log('Geladene Sales-Daten:', salesJson);
+      console.log('Geladene Items-Daten:', itemsJson);
+
+      if (!salesJson._default || !itemsJson._default) {
+        throw new Error('Ungültiges Datenformat - _default nicht gefunden');
+      }
 
       salesData = salesJson._default;
       itemsData = itemsJson._default;
 
+      // Prüfe ob Daten vorhanden sind
+      if (Object.keys(salesData).length === 0) {
+        document.getElementById('sales-summary-table').innerHTML = 
+          '<tr><td colspan="4" style="text-align: center; padding: 20px;">Keine Verkaufsdaten verfügbar</td></tr>';
+        return;
+      }
+
       updateTable(salesData);
+      
     } catch (error) {
-      console.error('Fehler beim Laden der JSON:', error);
+      console.error('Fehler beim Laden der Daten:', error);
+      // Zeige Fehlermeldung in der Tabelle
+      document.getElementById('sales-summary-table').innerHTML = 
+        `<tr><td colspan="4" style="text-align: center; padding: 20px; color: red;">
+          Fehler beim Laden der Daten: ${error.message}
+        </td></tr>`;
     }
   }
 
@@ -144,8 +174,13 @@ Zusammengefasste Verkäufe
     // Umsatz und Gewinn berechnen
     for (const itemName in aggregatedSales) {
       const item = findItem(itemName);
-      const sellingPrice = parseFloat(item.cost.replace(',', '.'));
-      const purchasePrice = parseFloat(item.purchase_price.replace(',', '.'));
+      // Konvertiere die Werte sicher zu Zahlen
+      const sellingPrice = typeof item.cost === 'string' 
+        ? parseFloat(item.cost.replace(',', '.'))
+        : parseFloat(item.cost);
+      const purchasePrice = typeof item.purchase_price === 'string'
+        ? parseFloat(item.purchase_price.replace(',', '.'))
+        : parseFloat(item.purchase_price);
       
       aggregatedSales[itemName].revenue = aggregatedSales[itemName].amount * sellingPrice;
       aggregatedSales[itemName].profit = aggregatedSales[itemName].amount * (sellingPrice - purchasePrice);
