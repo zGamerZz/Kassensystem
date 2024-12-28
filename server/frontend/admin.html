@@ -203,24 +203,13 @@
         }
     </style>
     <script>
-        const ADMIN_PASSWORD = "admin123"; // In der Produktion sollte dies sicherer sein!
-        
-        function checkPassword() {
-            const password = localStorage.getItem('adminPassword');
-            if (!password || password !== ADMIN_PASSWORD) {
-                const input = prompt("Bitte Admin-Passwort eingeben:");
-                if (input !== ADMIN_PASSWORD) {
-                    alert("Falsches Passwort!");
-                    window.location.href = "/";
-                    return false;
-                }
-                localStorage.setItem('adminPassword', input);
-            }
+        async function checkAdminAccess() {
+            document.getElementById('mainContent').style.display = 'block';
             return true;
         }
 
         async function loadUsers() {
-            if (!checkPassword()) return;
+            if (!checkAdminAccess()) return;
             
             const response = await fetch('/api/shop/users');
             const users = await response.json();
@@ -246,9 +235,9 @@
         }
 
         async function addUser(event) {
-            event.preventDefault();
-            if (!checkPassword()) return;
+            if (!checkAdminAccess()) return;
 
+            event.preventDefault();
             const formData = new FormData(event.target);
             try {
                 const response = await fetch('/api/shop/user/add', {
@@ -269,7 +258,7 @@
         }
 
         async function deleteUser(userCode) {
-            if (!checkPassword()) return;
+            if (!checkAdminAccess()) return;
             
             if (!confirm('Benutzer wirklich löschen?')) return;
             
@@ -290,7 +279,7 @@
         }
 
         async function viewSessions(userCode) {
-            if (!checkPassword()) return;
+            if (!checkAdminAccess()) return;
             
             try {
                 const response = await fetch(`/api/shop/sessions/${userCode}`);
@@ -317,8 +306,8 @@
         }
 
         async function loadAllSessions(event, showAll = false) {
+            if (!checkAdminAccess()) return;
             if (event) event.preventDefault();
-            if (!checkPassword()) return;
             
             try {
                 // Hole alle Benutzer
@@ -411,6 +400,8 @@
 
         // Setze Standarddaten beim Laden der Seite
         document.addEventListener('DOMContentLoaded', () => {
+            if (!checkAdminAccess()) return;
+            
             loadUsers();
             
             // Setze Standarddaten für das Datumsauswahlfeld
@@ -427,76 +418,74 @@
     </script>
 </head>
 <body class="w3-theme-d3">
-    <div class="w3-bar w3-theme-dark w3-card w3-container" id="navigation-bar" style="position: sticky; top: 0;">
-        <a href="index.html" class="w3-bar-item w3-section w3-round-xlarge w3-hover-theme w3-left w3-theme-d3"><h2>{{ lang.title }}</h2></a>        
-        <a href="settings.html" class="w3-bar-item w3-section w3-round-xlarge w3-hover-theme w3-right"><h2>{{lang.settings}}</h2></a>
-        <a href="shop.html" class="w3-bar-item w3-section w3-round-xlarge w3-hover-theme w3-right"><h2>{{ lang.shop }}</h2></a>
-        <a href="storage.html" class="w3-bar-item w3-section w3-round-xlarge w3-hover-theme w3-right"><h2>{{ lang.storage }}</h2></a>
-    </div>
-
-    <div class="container">
-        <h1>Admin Panel - Benutzerverwaltung</h1>
-        
-        <div class="card">
-            <h2>Neuen Benutzer erstellen</h2>
-            <form onsubmit="addUser(event)">
-                <input type="text" name="username" placeholder="Benutzername" required pattern="[A-Za-z0-9\s]{3,}">
-                <input type="text" name="user_code" placeholder="Benutzercode" required pattern="[A-Za-z0-9]{6,}">
-                <button type="submit">Erstellen</button>
-            </form>
+    <div id="mainContent">
+        <div class="w3-bar w3-theme-dark w3-card w3-container" id="navigation-bar" style="position: sticky; top: 0;">
+            <a href="index.html" class="w3-bar-item w3-section w3-round-xlarge w3-hover-theme w3-left w3-theme-d3"><h2>{{ lang.title }}</h2></a>        
+            <a href="settings.html" class="w3-bar-item w3-section w3-round-xlarge w3-hover-theme w3-right"><h2>{{lang.settings}}</h2></a>
+            <a href="shop.html" class="w3-bar-item w3-section w3-round-xlarge w3-hover-theme w3-right"><h2>{{ lang.shop }}</h2></a>
+            <a href="storage.html" class="w3-bar-item w3-section w3-round-xlarge w3-hover-theme w3-right"><h2>{{ lang.storage }}</h2></a>
         </div>
 
-        <div class="card">
-            <h2>Benutzerliste</h2>
-            <table id="userTable">
-                <thead>
-                    <tr>
-                        <th>Benutzername</th>
-                        <th>Code</th>
-                        <th>Erstellt am</th>
-                        <th>Aktionen</th>
-                    </tr>
-                </thead>
-                <tbody>
-                </tbody>
-            </table>
-        </div>
-
-        <div class="card">
-            <h2>Benutzeraktivitäten</h2>
-            <div class="date-controls">
-                <div class="quick-buttons">
-                    <button type="button" onclick="setQuickDate('today')">Heute</button>
-                    <button type="button" onclick="setQuickDate('yesterday')">Gestern</button>
-                    <button type="button" onclick="setQuickDate('thisWeek')">Diese Woche</button>
-                </div>
-                <form id="dateRangeForm" onsubmit="loadAllSessions(event)" class="date-range-form">
-                    <div class="date-inputs">
-                        <input type="date" id="startDate" name="startDate" required>
-                        <span>bis</span>
-                        <input type="date" id="endDate" name="endDate" required>
-                    </div>
-                    <button type="submit">Zeitraum anzeigen</button>
-                    <button type="button" onclick="loadAllSessions(null, true)">Alle anzeigen</button>
+        <div class="container">
+            <h1>Admin Panel - Benutzerverwaltung</h1>
+            
+            <div class="card">
+                <h2>Neuen Benutzer erstellen</h2>
+                <form onsubmit="addUser(event)">
+                    <input type="text" name="username" placeholder="Benutzername" required pattern="[A-Za-z0-9\s]{3,}">
+                    <input type="text" name="user_code" placeholder="Benutzercode" required pattern="[A-Za-z0-9]{6,}">
+                    <button type="submit">Erstellen</button>
                 </form>
             </div>
-            <table id="sessionsTable">
-                <thead>
-                    <tr>
-                        <th>Benutzer</th>
-                        <th>Anmeldung</th>
-                        <th>Abmeldung</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                </tbody>
-            </table>
+
+            <div class="card">
+                <h2>Benutzerliste</h2>
+                <table id="userTable">
+                    <thead>
+                        <tr>
+                            <th>Benutzername</th>
+                            <th>Code</th>
+                            <th>Erstellt am</th>
+                            <th>Aktionen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="card">
+                <h2>Benutzeraktivitäten</h2>
+                <div class="date-controls">
+                    <div class="quick-buttons">
+                        <button type="button" onclick="setQuickDate('today')">Heute</button>
+                        <button type="button" onclick="setQuickDate('yesterday')">Gestern</button>
+                        <button type="button" onclick="setQuickDate('thisWeek')">Diese Woche</button>
+                    </div>
+                    <form id="dateRangeForm" onsubmit="loadAllSessions(event)" class="date-range-form">
+                        <div class="date-inputs">
+                            <input type="date" id="startDate" name="startDate" required>
+                            <span>bis</span>
+                            <input type="date" id="endDate" name="endDate" required>
+                        </div>
+                        <button type="submit">Zeitraum anzeigen</button>
+                        <button type="button" onclick="loadAllSessions(null, true)">Alle anzeigen</button>
+                    </form>
+                </div>
+                <table id="sessionsTable">
+                    <thead>
+                        <tr>
+                            <th>Benutzer</th>
+                            <th>Anmeldung</th>
+                            <th>Abmeldung</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
-
-    <script>
-        // ... Vorheriger JavaScript-Code bleibt unverändert ...
-    </script>
 </body>
 </html>
