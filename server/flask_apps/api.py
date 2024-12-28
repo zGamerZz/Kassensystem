@@ -37,6 +37,7 @@ item_amount_pattern = r"^[0-9]+$"
 item_cost_pattern = r"^[0-9]+[,|.]?[0-9]*$"
 user_code_pattern = r"^[A-Za-z0-9]{6,}$"
 username_pattern = r"^[A-Za-z0-9\s]{3,}$"
+item_purchase_price_pattern = r"^[0-9]+[,|.]?[0-9]*$"
 
 # Utils
 def has_item(item_name: str) -> bool:
@@ -91,29 +92,30 @@ def get():
 def additem():
     global items
 
-    # check for keys
-    assert has_keys(["item_name", "item_cost", "item_amount"], request.form.keys()), "bad keys"
+    # Schlüssel prüfen
+    assert has_keys(["item_name", "item_cost", "item_amount", "item_purchase_price"], request.form.keys()), "bad keys"
 
     assert re.match(item_name_pattern, request.form["item_name"]), "bad format"
     assert re.match(item_amount_pattern, request.form["item_amount"]), "bad format"
     assert re.match(item_cost_pattern, request.form["item_cost"]), "bad format"
+    assert re.match(item_purchase_price_pattern, request.form["item_purchase_price"]), "bad format"
 
-    # save in variables
+    # In Variablen speichern
     item_name = request.form["item_name"]
     item_cost = request.form["item_cost"]
     item_amount = request.form["item_amount"]
+    item_purchase_price = request.form["item_purchase_price"]
 
-    # check user_input
     assert not has_item(item_name), "bad item"
 
-    # add item
+    # Item hinzufügen
     items.insert({
-        "name":item_name,
-        "cost":item_cost,
-        "amount":item_amount
+        "name": item_name,
+        "cost": item_cost,
+        "amount": item_amount,
+        "purchase_price": item_purchase_price
     })
 
-    # return response
     return "success", 200
 
 @api.route("/delete", methods=["DELETE"])
@@ -156,7 +158,7 @@ def buy():
     sales_data = {
         "item_name": item_name,
         "amount_sold": int(item_amount),
-        "timestamp": datetime.datetime.now().isoformat(),  # Verkaufszeitpunkt
+        "timestamp": datetime.now().isoformat(),  # Korrigiert: datetime.datetime.now() -> datetime.now()
     }
 
     # Verkaufsprotokoll einfügen
@@ -173,36 +175,36 @@ def buy():
 @api.route("/edit", methods=["POST"])
 def edit():
     global items
-    # check for requiered keys
-    assert has_keys(["item_name_old", "item_name_new", "item_cost_new", "item_amount_new"], request.form.keys()), "bad keys"
+    # Schlüssel prüfen
+    assert has_keys(["item_name_old", "item_name_new", "item_cost_new", "item_amount_new", "item_purchase_price_new"], request.form.keys()), "bad keys"
 
-    # check user input
+    # Benutzereingaben prüfen
     assert re.match(item_name_pattern, request.form["item_name_new"]), "bad format"
     assert re.match(item_name_pattern, request.form["item_name_old"]), "bad format"
     assert re.match(item_amount_pattern, request.form["item_amount_new"]), "bad format"
     assert re.match(item_cost_pattern, request.form["item_cost_new"]), "bad format"
+    assert re.match(item_purchase_price_pattern, request.form["item_purchase_price_new"]), "bad format"
 
-    # save inforamations in variables
+    # In Variablen speichern
     item_name_old = request.form["item_name_old"]
     item_name_new = request.form["item_name_new"]
     item_cost_new = float(request.form["item_cost_new"])
     item_amount_new = int(request.form["item_amount_new"])
+    item_purchase_price_new = float(request.form["item_purchase_price_new"])
 
-    # check that item exists
+    # Prüfen ob Item existiert
     assert has_item(item_name_old), "bad item"
     if item_name_new != item_name_old:
-        # if item_name changed check that item doesn't already exists
         assert not has_item(item_name_new), "item already exists"
 
-
-    # update item
+    # Item aktualisieren
     items.update({
-            "name":item_name_new,
-            "cost":item_cost_new,
-            "amount":item_amount_new
+            "name": item_name_new,
+            "cost": item_cost_new,
+            "amount": item_amount_new,
+            "purchase_price": item_purchase_price_new
         }, where("name")==item_name_old)
 
-    # send response
     return "success", 200
 
 # Neue API-Routen für das Login-System

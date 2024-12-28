@@ -44,6 +44,7 @@ Zusammengefasste Verkäufe
           <th style="padding: 15px; background-color: #f5f5f5; color: #333; text-align: left; font-weight: 600; border-bottom: 2px solid #ddd;">Produktname</th>
           <th style="padding: 15px; background-color: #f5f5f5; color: #333; text-align: center; font-weight: 600; border-bottom: 2px solid #ddd;">Gesamt verkaufte Menge</th>
           <th style="padding: 15px; background-color: #f5f5f5; color: #333; text-align: right; font-weight: 600; border-bottom: 2px solid #ddd;">Umsatz</th>
+          <th style="padding: 15px; background-color: #f5f5f5; color: #333; text-align: right; font-weight: 600; border-bottom: 2px solid #ddd;">Gewinn</th>
         </tr>
       </thead>
       <tbody id="sales-summary-table">
@@ -54,6 +55,7 @@ Zusammengefasste Verkäufe
           <td style="padding: 15px; font-weight: 600; color: #333; border-top: 2px solid #ddd;">Gesamt:</td>
           <td id="total-amount" style="padding: 15px; font-weight: 600; color: #333; text-align: center; border-top: 2px solid #ddd;"></td>
           <td id="total-revenue" style="padding: 15px; font-weight: 600; color: #333; text-align: right; border-top: 2px solid #ddd;"></td>
+          <td id="total-profit" style="padding: 15px; font-weight: 600; color: #333; text-align: right; border-top: 2px solid #ddd;"></td>
         </tr>
       </tfoot>
     </table>
@@ -120,6 +122,7 @@ Zusammengefasste Verkäufe
     const aggregatedSales = {};
     let totalAmount = 0;
     let totalRevenue = 0;
+    let totalProfit = 0;
 
     // Daten zusammenfassen
     for (const id in data) {
@@ -132,18 +135,24 @@ Zusammengefasste Verkäufe
       } else {
         aggregatedSales[itemName] = {
           amount: amountSold,
-          revenue: 0
+          revenue: 0,
+          profit: 0
         };
       }
     }
 
-    // Umsatz berechnen
+    // Umsatz und Gewinn berechnen
     for (const itemName in aggregatedSales) {
-      const itemPrice = findItemPrice(itemName);
-      aggregatedSales[itemName].revenue = aggregatedSales[itemName].amount * itemPrice;
+      const item = findItem(itemName);
+      const sellingPrice = parseFloat(item.cost.replace(',', '.'));
+      const purchasePrice = parseFloat(item.purchase_price.replace(',', '.'));
+      
+      aggregatedSales[itemName].revenue = aggregatedSales[itemName].amount * sellingPrice;
+      aggregatedSales[itemName].profit = aggregatedSales[itemName].amount * (sellingPrice - purchasePrice);
       
       totalAmount += aggregatedSales[itemName].amount;
       totalRevenue += aggregatedSales[itemName].revenue;
+      totalProfit += aggregatedSales[itemName].profit;
     }
 
     // Tabelle aktualisieren
@@ -158,6 +167,7 @@ Zusammengefasste Verkäufe
         <td style="padding: 15px; color: #333; border-bottom: 1px solid #eee;">${itemName}</td>
         <td style="padding: 15px; text-align: center; color: #333; border-bottom: 1px solid #eee;">${data.amount}</td>
         <td style="padding: 15px; text-align: right; color: #333; border-bottom: 1px solid #eee;">${data.revenue.toFixed(2)} €</td>
+        <td style="padding: 15px; text-align: right; color: #333; border-bottom: 1px solid #eee;">${data.profit.toFixed(2)} €</td>
       `;
       tableBody.appendChild(row);
     });
@@ -165,15 +175,16 @@ Zusammengefasste Verkäufe
     // Gesamtsummen aktualisieren
     document.getElementById('total-amount').textContent = totalAmount;
     document.getElementById('total-revenue').textContent = `${totalRevenue.toFixed(2)} €`;
+    document.getElementById('total-profit').textContent = `${totalProfit.toFixed(2)} €`;
   }
 
-  function findItemPrice(itemName) {
+  function findItem(itemName) {
     for (const id in itemsData) {
       if (itemsData[id].name === itemName) {
-        return parseFloat(itemsData[id].cost.replace(',', '.'));
+        return itemsData[id];
       }
     }
-    return 0;
+    return null;
   }
 
   function filterSales() {
