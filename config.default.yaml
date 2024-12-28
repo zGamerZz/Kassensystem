@@ -10,9 +10,8 @@ welcome_message:
     message: 
 
 firewall: 
-    active: True
-    allowed_ips:
-        - 127.0.0.1
+    active: False
+    allowed_ips: []
 
 server:
     auto_reload: False
