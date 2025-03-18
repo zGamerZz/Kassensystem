@@ -42,7 +42,8 @@
 
     async function handleLogin(event) {
         event.preventDefault();
-        const userCode = document.getElementById('user-code').value;
+        const userCode1 = document.getElementById('user-code1').value;
+        const userCode2 = document.getElementById('user-code2').value;
         
         try {
             const response = await fetch('/api/shop/login', {
@@ -50,39 +51,50 @@
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: `user_code=${userCode}`
+                body: `user_code1=${userCode1}&user_code2=${userCode2}`
             });
 
             if (response.ok) {
-                activeUserCode = userCode;
-                localStorage.setItem('userCode', userCode);
+                activeUserCode = userCode1;
+                localStorage.setItem('userCode1', userCode1);
+                localStorage.setItem('userCode2', userCode2);
                 checkLoginStatus();
+                setupActivityListeners();
             } else {
                 const errorText = await response.text();
                 if (errorText.includes('bereits angemeldet')) {
-                    if (confirm('Benutzer ist bereits angemeldet. Möchten Sie die bestehende Sitzung beenden und sich neu anmelden?')) {
-                        // Erst ausloggen
-                        await fetch('/api/shop/logout', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/x-www-form-urlencoded',
-                            },
-                            body: `user_code=${userCode}`
-                        });
-                        
-                        // Dann neu einloggen
-                        const loginResponse = await fetch('/api/shop/login', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/x-www-form-urlencoded',
-                            },
-                            body: `user_code=${userCode}`
-                        });
+                    if (confirm('Benutzer ist bereits angemeldet. Sitzung übernehmen?')) {
+                        try {
+                            // Versuche die bestehende Session der neuen Codes zu beenden
+                            await fetch('/api/shop/logout', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/x-www-form-urlencoded',
+                                },
+                                body: `user_code1=${userCode1}&user_code2=${userCode2}`
+                            });
 
-                        if (loginResponse.ok) {
-                            activeUserCode = userCode;
-                            localStorage.setItem('userCode', userCode);
-                            checkLoginStatus();
+                            // Neue Anmeldung mit den aktuellen Codes
+                            const loginResponse = await fetch('/api/shop/login', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/x-www-form-urlencoded',
+                                },
+                                body: `user_code1=${userCode1}&user_code2=${userCode2}`
+                            });
+
+                            if (loginResponse.ok) {
+                                localStorage.setItem('userCode1', userCode1);
+                                localStorage.setItem('userCode2', userCode2);
+                                activeUserCode = userCode1;
+                                checkLoginStatus();
+                                setupActivityListeners();
+                                location.reload(); // Seite neu laden um Zustand zu aktualisieren
+                            } else {
+                                alert('Sitzungsübernahme fehlgeschlagen: ' + await loginResponse.text());
+                            }
+                        } catch (error) {
+                            alert('Fehler bei Sitzungsübernahme: ' + error);
                         }
                     }
                 } else {
@@ -95,22 +107,29 @@
     }
 
     async function handleLogout() {
-        if (!activeUserCode) return;
+        const userCode1 = localStorage.getItem('userCode1');
+        const userCode2 = localStorage.getItem('userCode2');
+        
+        // Überprüfung auf aktiven Benutzerstatus
+        if (!activeUserCode) {
+            localStorage.removeItem('userCode1');
+            localStorage.removeItem('userCode2');
+            checkLoginStatus();
+            return;
+        }
 
         try {
-            // Sicherstellen, dass der userCode als gültiger URI-Parameter kodiert wird
-            const encodedUserCode = encodeURIComponent(activeUserCode);
-            
             const response = await fetch('/api/shop/logout', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: `user_code=${encodedUserCode}`
+                body: `user_code1=${encodeURIComponent(userCode1)}&user_code2=${encodeURIComponent(userCode2)}`
             });
 
             if (response.ok) {
-                localStorage.removeItem('userCode');
+                localStorage.removeItem('userCode1');
+                localStorage.removeItem('userCode2');
                 activeUserCode = null;
                 checkLoginStatus();
                 clearTimeout(inactivityTimer);
@@ -120,7 +139,7 @@
             }
         } catch (error) {
             console.error('Fehler beim Logout:', error);
-            alert('Fehler beim Logout: ' + error);
+            alert('Fehler beim Logout: ' + error.message);
         }
     }
 
@@ -245,7 +264,8 @@
 <div id="login-section" class="main">
     <form class="login-form w3-theme-l5" onsubmit="handleLogin(event)">
         <h2>{{ lang.login_title }}</h2>
-        <input type="text" id="user-code" placeholder="{{ lang.enter_user_code }}" required>
+        <input type="text" id="user-code1" placeholder="{{ lang.enter_user_code_1 }}" required>
+        <input type="text" id="user-code2" placeholder="{{ lang.enter_user_code_2 }}" required>
         <button type="submit" class="w3-button w3-theme-d3">{{ lang.login_button }}</button>
     </form>
 </div>

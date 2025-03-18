@@ -5,7 +5,19 @@ Zusammengefasste Verkäufe
 {% endblock %}
 
 {% block body %}
-<div class="sales-container" style="max-width: 1200px; margin: 40px auto; padding: 0 20px;">
+<div id="loginOverlay" style="display: flex; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000;">
+    <div style="background: white; padding: 2rem; margin: auto; border-radius: 8px;">
+        <h2 style="text-align: center; margin-bottom: 20px;">Admin Login</h2>
+        <form onsubmit="checkAccess(event)">
+            <input type="password" id="adminPwd" placeholder="Admin Passwort" required 
+                  style="margin: 10px 0; padding: 8px; width: 200px; display: block;">
+            <button type="submit" style="width: 100%; padding: 8px;">Einloggen</button>
+        </form>
+        <p id="loginError" style="color: red; margin-top: 10px; display: none;">Falsches Passwort!</p>
+    </div>
+</div>
+
+<div class="sales-container" style="max-width: 1200px; margin: 40px auto; padding: 0 20px; display: none;" id="mainSalesContent">
   <h1 style="text-align: center; font-family: 'Segoe UI', Arial, sans-serif; color: #333; margin-bottom: 40px; font-size: 2.2em;">
     Zusammenfassung der Verkäufe
   </h1>
@@ -94,6 +106,28 @@ Zusammengefasste Verkäufe
 </style>
 
 <script>
+  const ADMIN_PWD = 'admin1234';
+  let isAuthenticated = false;
+
+  function checkAccess(event) {
+    event.preventDefault();
+    const input = document.getElementById('adminPwd').value;
+    if(input === ADMIN_PWD) {
+      document.getElementById('loginOverlay').style.display = 'none';
+      document.getElementById('mainSalesContent').style.display = 'block';
+      isAuthenticated = true;
+      loadJSON();
+    } else {
+      document.getElementById('loginError').style.display = 'block';
+    }
+    return false;
+  }
+
+  // Originale window.onload Funktion ersetzen
+  window.onload = function() {
+    document.getElementById('mainSalesContent').style.display = 'none';
+  };
+
   let salesData = {};
   let itemsData = {};
 
@@ -270,8 +304,5 @@ Zusammengefasste Verkäufe
     // Filterung basierend auf den Preset-Daten ausführen
     filterSales();
   }
-
-  // Daten beim Laden der Seite laden
-  window.onload = loadJSON;
 </script>
 {% endblock %}

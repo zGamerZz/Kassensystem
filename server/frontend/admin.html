@@ -201,11 +201,56 @@
                 flex-direction: column;
             }
         }
+
+        /* Neues Styling für Passwort-Eingabe */
+        .password-prompt {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.2);
+            text-align: center;
+            z-index: 1000;
+        }
+
+        .password-prompt input {
+            padding: 12px;
+            margin: 10px 0;
+            width: 200px;
+            display: block;
+        }
+
+        .password-prompt button {
+            background: #505050;
+            color: white;
+            padding: 12px 24px;
+            width: 100%;
+        }
+
+        .password-error {
+            color: red;
+            margin-top: 10px;
+            display: none;
+        }
     </style>
     <script>
         async function checkAdminAccess() {
-            document.getElementById('mainContent').style.display = 'block';
-            return true;
+            const password = document.getElementById('adminPassword').value;
+            const errorDiv = document.getElementById('passwordError');
+            
+            if(password === 'admin123') {
+                document.querySelector('.password-prompt').style.display = 'none';
+                document.getElementById('mainContent').style.display = 'block';
+                return true;
+            } else {
+                errorDiv.style.display = 'block';
+                document.getElementById('adminPassword').value = '';
+                document.getElementById('adminPassword').focus();
+                return false;
+            }
         }
 
         async function loadUsers() {
@@ -398,10 +443,16 @@
             loadAllSessions(null);
         }
 
-        // Setze Standarddaten beim Laden der Seite
+        // Enter-Taste Handler für Passwortfeld
+        document.getElementById('adminPassword').addEventListener('keypress', function(e) {
+            if(e.key === 'Enter') checkAdminAccess();
+        });
+
+        // Angepasster DOMContentLoaded Handler
         document.addEventListener('DOMContentLoaded', () => {
-            if (!checkAdminAccess()) return;
+            document.getElementById('adminPassword').focus();
             
+            // Nur bei erfolgreicher Authentifizierung ausführen
             loadUsers();
             
             // Setze Standarddaten für das Datumsauswahlfeld
@@ -418,7 +469,14 @@
     </script>
 </head>
 <body class="w3-theme-d3">
-    <div id="mainContent">
+    <div class="password-prompt">
+        <h2>Admin Login</h2>
+        <input type="password" id="adminPassword" placeholder="Passwort eingeben" autofocus>
+        <button onclick="checkAdminAccess()">Bestätigen</button>
+        <div class="password-error" id="passwordError">Falsches Passwort!</div>
+    </div>
+    
+    <div id="mainContent" style="display: none;">
         <div class="w3-bar w3-theme-dark w3-card w3-container" id="navigation-bar" style="position: sticky; top: 0;">
             <a href="index.html" class="w3-bar-item w3-section w3-round-xlarge w3-hover-theme w3-left w3-theme-d3"><h2>{{ lang.title }}</h2></a>        
             <a href="settings.html" class="w3-bar-item w3-section w3-round-xlarge w3-hover-theme w3-right"><h2>{{lang.settings}}</h2></a>

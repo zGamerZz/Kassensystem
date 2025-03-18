@@ -1,6 +1,7 @@
 import os
 import re
 import datetime
+import shutil
 
 from typing import List
 from flask import Flask, request, jsonify, Response
@@ -210,40 +211,46 @@ def edit():
 # Neue API-Routen für das Login-System
 @api.route("/login", methods=["POST"])
 def login():
-    assert has_keys(["user_code"], request.form.keys()), "bad keys"
-    user_code = request.form["user_code"]
+    assert has_keys(["user_code1", "user_code2"], request.form.keys()), "bad keys"
+    user_code1 = request.form["user_code1"]
+    user_code2 = request.form["user_code2"]
     
-    assert re.match(user_code_pattern, user_code), "ungültiger Benutzercode"
-    assert has_user(user_code), "Benutzer nicht gefunden"
+    # Beide Codes müssen unterschiedlich sein
+    assert user_code1 != user_code2, "beide Benutzer müssen unterschiedlich sein"
     
-    # Prüfen ob Benutzer bereits aktiv
-    active_session = get_active_session(user_code)
-    if active_session:
-        return "Benutzer bereits angemeldet", 400
+    # Beide Benutzer müssen existieren
+    assert has_user(user_code1), "Benutzer 1 nicht gefunden"
+    assert has_user(user_code2), "Benutzer 2 nicht gefunden"
     
-    # Neue Session erstellen
-    sessions_db.insert({
-        "user_code": user_code,
-        "login_time": datetime.now(timezone.utc).isoformat(),
-        "logout_time": None
-    })
+    # Beide Benutzer dürfen nicht bereits angemeldet sein
+    assert not get_active_session(user_code1), "Benutzer 1 bereits angemeldet"
+    assert not get_active_session(user_code2), "Benutzer 2 bereits angemeldet"
+    
+    # Sessions für beide Benutzer erstellen
+    for code in [user_code1, user_code2]:
+        sessions_db.insert({
+            "user_code": code,
+            "login_time": datetime.now(timezone.utc).isoformat(),
+            "logout_time": None,
+            "partner_code": user_code2 if code == user_code1 else user_code1
+        })
     
     return "success", 200
 
 @api.route("/logout", methods=["POST"])
 def logout():
-    assert has_keys(["user_code"], request.form.keys()), "bad keys"
-    user_code = request.form["user_code"]
+    assert has_keys(["user_code1", "user_code2"], request.form.keys()), "bad keys"
+    user_code1 = request.form["user_code1"]
+    user_code2 = request.form["user_code2"]
     
-    active_session = get_active_session(user_code)
-    if not active_session:
-        return "Keine aktive Session gefunden", 400
-    
-    # Session beenden
-    sessions_db.update(
-        {"logout_time": datetime.now(timezone.utc).isoformat()},
-        doc_ids=[active_session.doc_id]
-    )
+    # Beide Sessions beenden
+    for code in [user_code1, user_code2]:
+        active_session = get_active_session(code)
+        if active_session:
+            sessions_db.update(
+                {"logout_time": datetime.now(timezone.utc).isoformat()},
+                doc_ids=[active_session.doc_id]
+            )
     
     return "success", 200
 
@@ -285,3 +292,43 @@ def get_user_sessions(user_code):
     assert has_user(user_code), "Benutzer nicht gefunden"
     sessions = sessions_db.search(Query().user_code == user_code)
     return jsonify(sessions), 200
+
+@api.route("/admin/delete-all", methods=["DELETE"])
+def delete_all_data():
+    # Sicherheitsüberprüfung
+    assert has_keys(["admin_password"], request.args.keys()), "Admin-Passwort erforderlich"
+    assert request.args["admin_password"] == config.get("ADMIN_PASSWORD"), "Ungültiges Admin-Passwort"
+    
+    try:
+        # Lösche alle Datenbanken
+        db_files = [
+            get_path("storages/items.db"),
+            get_path("storages/users.db"),
+            get_path("storages/sessions.db"),
+            'storages/sales_log.json'
+        ]
+        
+        # Lösche Backups
+        backup_dir = get_path("storages/backups")
+        for filename in os.listdir(backup_dir):
+            file_path = os.path.join(backup_dir, filename)
+            if os.path.isfile(file_path):
+                os.unlink(file_path)
+        
+        # Lösche Hauptdatenbanken
+        for db_file in db_files:
+            if os.path.exists(db_file):
+                os.remove(db_file)
+                # Neue leere Datenbank erstellen
+                TinyDB(db_file).close()
+        
+        # Cache leeren
+        cache_dir = get_path("storages/cache")
+        if os.path.exists(cache_dir):
+            shutil.rmtree(cache_dir)
+            os.makedirs(cache_dir)
+            
+        return "Alle Daten wurden erfolgreich gelöscht", 200
+        
+    except Exception as e:
+        return f"Fehler beim Löschen: {str(e)}", 500
